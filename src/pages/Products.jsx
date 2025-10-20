@@ -11,13 +11,17 @@ const Products = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Get search query from URL
+  // Get search query and category from URL
   const searchQuery = searchParams.get('search') || '';
+  // Capitalize first letter of category to match the format used in the select dropdown
+  const categoryQuery = searchParams.get('category') 
+    ? searchParams.get('category').charAt(0).toUpperCase() + searchParams.get('category').slice(1)
+    : '';
 
   // Filter states
   const [filters, setFilters] = useState({
     brand: '',
-    category: '',
+    category: categoryQuery,
     minPrice: '',
     maxPrice: '',
     size: '',
@@ -37,12 +41,21 @@ const Products = () => {
   ];
 
   useEffect(() => {
-    // Update filters when URL search param changes
-    setFilters(prev => ({ ...prev, search: searchQuery }));
-  }, [searchQuery]);
+    // Update filters when URL search or category params change
+    setFilters(prev => ({ 
+      ...prev, 
+      search: searchQuery,
+      category: categoryQuery 
+    }));
+  }, [searchQuery, categoryQuery]);
 
   useEffect(() => {
-    fetchProducts();
+    // Debounce search - wait 500ms after user stops typing
+    const timeoutId = setTimeout(() => {
+      fetchProducts();
+    }, 500);
+
+    return () => clearTimeout(timeoutId);
   }, [filters]);
 
   const fetchProducts = async () => {
@@ -55,7 +68,7 @@ const Products = () => {
       if (filters.minPrice) queryFilters.minPrice = filters.minPrice;
       if (filters.maxPrice) queryFilters.maxPrice = filters.maxPrice;
       if (filters.size) queryFilters.size = filters.size;
-      if (filters.search) queryFilters.search = filters.search;
+      if (filters.search && filters.search.trim() !== '') queryFilters.search = filters.search.trim();
 
       const response = await productAPI.getAll(queryFilters);
       setProducts(response.data.data);
@@ -99,11 +112,14 @@ const Products = () => {
       search: '',
     });
     
-    // Clear search param from URL
+    // Clear search and category params from URL
     if (searchParams.has('search')) {
       searchParams.delete('search');
-      setSearchParams(searchParams);
     }
+    if (searchParams.has('category')) {
+      searchParams.delete('category');
+    }
+    setSearchParams(searchParams);
   };
 
   return (
@@ -119,9 +135,9 @@ const Products = () => {
           </p>
         </div>
 
-        <div className="flex gap-6">
+        <div className="flex flex-col md:flex-row gap-6">
           {/* Sidebar Filters */}
-          <aside className="w-full md:w-64 flex-shrink-0">
+          <aside className="w-full md:w-64 md:flex-shrink-0">
             <button
               onClick={() => setShowFilters(!showFilters)}
               className="md:hidden w-full mb-4 flex items-center justify-between bg-white p-4 rounded-lg shadow-sm"
@@ -260,7 +276,7 @@ const Products = () => {
           </aside>
 
           {/* Products Grid */}
-          <div className="flex-1">
+          <div className="flex-1 w-full">
             {error && (
               <div className="bg-red-100 text-red-700 p-4 rounded-lg mb-6">
                 {error}
@@ -270,13 +286,13 @@ const Products = () => {
             {loading ? (
               <Loading />
             ) : products.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-4 sm:gap-6">
                 {products.map((product) => (
                   <ProductCard key={product._id} product={product} />
                 ))}
               </div>
             ) : (
-              <div className="text-center py-12">
+              <div className="text-center py-12 px-4">
                 <h3 className="text-xl font-semibold text-gray-700 mb-2">
                   No products found
                 </h3>
